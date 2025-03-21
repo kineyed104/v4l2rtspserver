@@ -10,8 +10,9 @@
 ** -------------------------------------------------------------------------*/
 
 #include <dirent.h>
-
+#include <unistd.h>
 #include <sstream>
+#include <fcntl.h>
 
 #include "logger.h"
 #include "V4l2Capture.h"
@@ -29,6 +30,9 @@ StreamReplicator* V4l2RTSPServer::CreateVideoReplicator(
 					int queueSize, V4L2DeviceSource::CaptureMode captureMode, int repeatConfig,
 					const std::string& outputFile, V4l2IoType ioTypeOut, V4l2Output*& out) {
 
+	int newstdout = dup(STDOUT_FILENO);
+ 	dup2(STDERR_FILENO, STDOUT_FILENO);
+	
 	StreamReplicator* videoReplicator = NULL;
     std::string videoDev(inParam.m_devName);
 	if (!videoDev.empty())
@@ -43,14 +47,20 @@ StreamReplicator* V4l2RTSPServer::CreateVideoReplicator(
 			
 			if (!outputFile.empty())
 			{
-				V4L2DeviceParameters outparam(outputFile.c_str(), videoCapture->getFormat(), videoCapture->getWidth(), videoCapture->getHeight(), 0, ioTypeOut);
-				out = V4l2Output::create(outparam);
-				if (out != NULL)
+				if (outputFile == "stdout")
 				{
-					outfd = out->getFd();
-					LOG(INFO) << "Output fd:" << outfd << " " << outputFile;
-				} else {
-					LOG(WARN) << "Cannot open output:" << outputFile;
+					outfd = newstdout;
+				}
+				else{
+					V4L2DeviceParameters outparam(outputFile.c_str(), videoCapture->getFormat(), videoCapture->getWidth(), videoCapture->getHeight(), 0, ioTypeOut);
+					out = V4l2Output::create(outparam);
+					if (out != NULL)
+					{
+						outfd = out->getFd();
+						LOG(INFO) << "Output fd:" << outfd << " " << outputFile;
+					} else {
+						LOG(WARN) << "Cannot open output:" << outputFile;
+					}
 				}
 			}
 			
